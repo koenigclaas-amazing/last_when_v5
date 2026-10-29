@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>LastWhen — Irregular Maintenance Tracker</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-dim: #0ea5e9;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      line-height: 1.45;
+    }
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px 16px 100px;
+    }
+    header { margin-bottom: 24px; padding-top: 8px; }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    .subtitle { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      border: none; border-radius: 12px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; padding: 12px 18px;
+    }
+    .btn-primary { background: var(--accent); color: #0f172a; }
+    .btn-ghost { background: transparent; color: var(--text-muted); }
+    .btn-sm { padding: 8px 14px; font-size: 0.85rem; border-radius: 10px; }
+    .btn-done { background: var(--success); color: #0f172a; flex: 1; }
+    .btn-edit { background: var(--surface2); color: var(--text); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); width: 100%; }
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty h2 { font-size: 1.2rem; margin-bottom: 8px; color: var(--text); }
+    .list { display: flex; flex-direction: column; gap: 12px; }
+    .card {
+      background: var(--surface); border-radius: var(--radius); padding: 16px;
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    }
+    .card.status-fresh::before { background: var(--success); }
+    .card.status-due::before { background: var(--warning); }
+    .card.status-overdue::before { background: var(--danger); }
+    .card.status-none::before { background: var(--surface2); }
+    .card-header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .card-title { font-size: 1.1rem; font-weight: 600; flex: 1; }
+    .days-badge {
+      font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .status-fresh .days-badge { background: rgba(74,222,128,0.15); color: var(--success); }
+    .status-due .days-badge { background: rgba(251,191,36,0.15); color: var(--warning); }
+    .status-overdue .days-badge { background: rgba(248,113,113,0.15); color: var(--danger); }
+    .status-none .days-badge { background: var(--surface2); color: var(--text-muted); }
+    .meta { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
+    .notes {
+      font-size: 0.9rem; background: rgba(0,0,0,0.2); padding: 8px 10px;
+      border-radius: 8px; margin-bottom: 12px; white-space: pre-wrap;
+    }
+    .card-actions { display: flex; gap: 8px; }
+    .fab {
+      position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px;
+      border-radius: 50%; background: var(--accent); color: #0f172a;
+      font-size: 1.8rem; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 24px rgba(56,189,248,0.4);
+    }
+    .sort-bar { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
+    .chip {
+      padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 500;
+      background: var(--surface); color: var(--text-muted); border: none; white-space: nowrap; cursor: pointer;
+    }
+    .chip.active { background: var(--accent); color: #0f172a; }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--surface); width: 100%; max-width: 480px;
+      border-radius: 20px 20px 0 0; padding: 24px 20px 32px;
+      transform: translateY(100%); transition: transform 0.25s ease;
+      max-height: 90dvh; overflow-y: auto;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h2 { font-size: 1.25rem; margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+    input, textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--surface2);
+      border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 1rem;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { min-height: 80px; resize: vertical; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+    .modal-actions .btn { flex: 1; }
+    .error-msg {
+      background: rgba(248,113,113,0.15); color: var(--danger);
+      padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>LastWhen</h1>
+        <div class="subtitle">Irregular maintenance, no streaks</div>
+      </div>
+    </header>
+
+    <div class="sort-bar" id="sortBar">
+      <button class="chip active" data-sort="urgency">Most urgent</button>
+      <button class="chip" data-sort="name">Name</button>
+      <button class="chip" data-sort="recent">Recently done</button>
+    </div>
+
+    <div id="list" class="list"></div>
+    <div id="empty" class="empty" style="display:none;">
+      <h2>Nothing tracked yet</h2>
+      <p>Add the things you only do every few weeks or months.</p>
+      <button class="btn btn-primary" onclick="openModal()">+ Add first item</button>
+    </div>
+  </div>
+
+  <button class="fab" onclick="openModal()">+</button>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h2 id="modalTitle">Add item</h2>
+      <div id="errorMsg" class="error-msg"></div>
+      <form id="itemForm">
+        <input type="hidden" id="editId" />
+        <div class="form-group">
+          <label for="name">What to track</label>
+          <input type="text" id="name" placeholder="e.g. HVAC filter, Haircut, Dentist" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lastDone">Last done</label>
+            <input type="date" id="lastDone" />
+          </div>
+          <div class="form-group">
+            <label for="interval">Ideal every (days)</label>
+            <input type="number" id="interval" min="1" placeholder="e.g. 90" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="notes">Notes (optional)</label>
+          <textarea id="notes" placeholder="Who did it, what worked, cost..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+        <div id="deleteRow" style="margin-top:16px; display:none;">
+          <button type="button" class="btn btn-danger" onclick="deleteItem()">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'lastwhen_items_v1';
+    let items = [];
+    let currentSort = 'urgency';
+    let editingId = null;
+
+    // Better UUID that works everywhere
+    function generateId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        items = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        console.error('Load failed:', e);
+        items = [];
+        showError('Could not load saved data. Try hosting the file online (Netlify Drop is free).');
+      }
+    }
+
+    function save() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        return true;
+      } catch (e) {
+        console.error('Save failed:', e);
+        showError('Could not save. This usually happens when opening the file directly. Please host it online (see instructions).');
+        return false;
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function clearError() {
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    function daysSince(dateStr) {
+      if (!dateStr) return null;
+      const then = new Date(dateStr + 'T12:00:00');
+      const now = new Date();
+      now.setHours(12,0,0,0);
+      return Math.floor((now - then) / 86400000);
+    }
+
+    function getStatus(item) {
+      const days = daysSince(item.lastDone);
+      if (days === null) return 'none';
+      if (!item.interval) return 'fresh';
+      const ratio = days / item.interval;
+      if (ratio >= 1.15) return 'overdue';
+      if (ratio >= 0.85) return 'due';
+      return 'fresh';
+    }
+
+    function formatDays(days) {
+      if (days === null) return 'Never done';
+      if (days === 0) return 'Today';
+      if (days === 1) return '1 day ago';
+      if (days < 14) return days + ' days ago';
+      if (days < 60) return Math.round(days / 7) + ' weeks ago';
+      return Math.round(days / 30) + ' months ago';
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso + 'T12:00:00');
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function render() {
+      const listEl = document.getElementById('list');
+      const emptyEl = document.getElementById('empty');
+
+      if (items.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.style.display = 'block';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      let sorted = [...items];
+      if (currentSort === 'urgency') {
+        sorted.sort((a, b) => {
+          const order = { overdue: 0, due: 1, none: 2, fresh: 3 };
+          const sa = getStatus(a), sb = getStatus(b);
+          if (order[sa] !== order[sb]) return order[sa] - order[sb];
+          return (daysSince(b.lastDone) ?? 9999) - (daysSince(a.lastDone) ?? 9999);
+        });
+      } else if (currentSort === 'name') {
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+      } else {
+        sorted.sort((a, b) => (b.lastDone || '1970').localeCompare(a.lastDone || '1970'));
+      }
+
+      listEl.innerHTML = sorted.map(item => {
+        const status = getStatus(item);
+        const daysLabel = formatDays(daysSince(item.lastDone));
+        const intervalLabel = item.interval ? ` · every ${item.interval}d` : '';
+        return `
+          <div class="card status-${status}">
+            <div class="card-header">
+              <div class="card-title">${escapeHtml(item.name)}</div>
+              <div class="days-badge">${daysLabel}</div>
+            </div>
+            <div class="meta">
+              ${item.lastDone ? 'Last: ' + formatDate(item.lastDone) : 'Not yet done'}${intervalLabel}
+            </div>
+            ${item.notes ? `<div class="notes">${escapeHtml(item.notes)}</div>` : ''}
+            <div class="card-actions">
+              <button class="btn btn-sm btn-done" onclick="markDone('${item.id}')">✓ Done today</button>
+              <button class="btn btn-sm btn-edit" onclick="editItem('${item.id}')">Edit</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openModal(id = null) {
+      clearError();
+      editingId = id;
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const deleteRow = document.getElementById('deleteRow');
+
+      if (id) {
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+        title.textContent = 'Edit item';
+        document.getElementById('editId').value = id;
+        document.getElementById('name').value = item.name;
+        document.getElementById('lastDone').value = item.lastDone || '';
+        document.getElementById('interval').value = item.interval || '';
+        document.getElementById('notes').value = item.notes || '';
+        deleteRow.style.display = 'block';
+      } else {
+        title.textContent = 'Add item';
+        document.getElementById('editId').value = '';
+        document.getElementById('name').value = '';
+        document.getElementById('lastDone').value = '';
+        document.getElementById('interval').value = '';
+        document.getElementById('notes').value = '';
+        deleteRow.style.display = 'none';
+      }
+      modal.classList.add('open');
+      setTimeout(() => document.getElementById('name').focus(), 100);
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+      editingId = null;
+      clearError();
+    }
+
+    function markDone(id) {
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      item.lastDone = new Date().toISOString().slice(0, 10);
+      if (save()) render();
+    }
+
+    function editItem(id) {
+      openModal(id);
+    }
+
+    function deleteItem() {
+      if (!editingId || !confirm('Delete this item?')) return;
+      items = items.filter(i => i.id !== editingId);
+      if (save()) {
+        closeModal();
+        render();
+      }
+    }
+
+    document.getElementById('itemForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      clearError();
+
+      const name = document.getElementById('name').value.trim();
+      if (!name) return;
+
+      const data = {
+        name: name,
+        lastDone: document.getElementById('lastDone').value || null,
+        interval: parseInt(document.getElementById('interval').value) || null,
+        notes: document.getElementById('notes').value.trim() || ''
+      };
+
+      const id = document.getElementById('editId').value;
+
+      if (id) {
+        const item = items.find(i => i.id === id);
+        if (item) Object.assign(item, data);
+      } else {
+        items.push({
+          id: generateId(),
+          ...data,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      if (save()) {
+        closeModal();
+        render();
+      }
+    });
+
+    document.getElementById('sortBar').addEventListener('click', function(e) {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentSort = chip.dataset.sort;
+      render();
+    });
+
+    document.getElementById('modal').addEventListener('click', function(e) {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    // Start
+    load();
+    render();
+  </script>
+</body>
+</html>
