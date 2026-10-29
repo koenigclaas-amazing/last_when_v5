@@ -189,7 +189,7 @@
       return parse(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
     function money(n) {
-      if (n == null || n === '') return '$0.00';
+      if (n == null || n === '' || isNaN(n)) return '$0.00';
       return '$' + Number(n).toFixed(2);
     }
     function esc(str) {
@@ -207,9 +207,13 @@
       return 'upcoming';
     }
 
+    // FIXED: filter by month AND year so spent/remaining is correct
     function monthCosts() {
-      const m = new Date().getMonth();
-      return data.costs.filter(c => parse(c.date)?.getMonth() === m);
+      const now = new Date();
+      return data.costs.filter(c => {
+        const d = parse(c.date);
+        return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
     }
 
     function goTo(pageName, tab) {
@@ -593,7 +597,9 @@
         next.setDate(next.getDate() + Number(item.interval));
         item.nextDue = next.toISOString().slice(0,10);
       }
-      if (cost) data.costs.push({ id: uid(), amount: cost, date: item.lastDone, category: 'Maintenance', label: item.name });
+      if (cost && !isNaN(cost)) {
+        data.costs.push({ id: uid(), amount: Number(cost), date: item.lastDone, category: 'Maintenance', label: item.name });
+      }
       setTimeout(() => { save(); render(); }, 400);
     }
 
@@ -685,8 +691,8 @@
       const item = data.shopping.find(i => i.id === id);
       if (!item) return;
       item.checked = checked;
-      if (checked && item.cost) {
-        data.costs.push({ id: uid(), amount: item.cost, date: today().toISOString().slice(0,10), category: 'Shopping', label: item.name });
+      if (checked && item.cost && !isNaN(item.cost)) {
+        data.costs.push({ id: uid(), amount: Number(item.cost), date: today().toISOString().slice(0,10), category: 'Shopping', label: item.name });
       }
       save(); render();
     }
@@ -728,7 +734,7 @@
     function saveCost() {
       const label = document.getElementById('c-label').value.trim();
       const amount = Number(document.getElementById('c-amount').value);
-      if (!amount && amount !== 0) return alert('Amount is required');
+      if (isNaN(amount) || document.getElementById('c-amount').value === '') return alert('Amount is required');
       const payload = {
         label: label || 'Cost',
         amount,
