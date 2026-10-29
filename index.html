@@ -3,21 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0f172a" />
-  <title>LastWhen — Irregular Maintenance Tracker</title>
+  <title>LastWhen</title>
   <style>
     :root {
       --bg: #0f172a;
       --surface: #1e293b;
       --surface2: #334155;
       --text: #f1f5f9;
-      --text-muted: #94a3b8;
+      --muted: #94a3b8;
       --accent: #38bdf8;
-      --accent-dim: #0ea5e9;
-      --success: #4ade80;
-      --warning: #fbbf24;
-      --danger: #f87171;
-      --radius: 14px;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --purple: #c084fc;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -25,396 +23,752 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100dvh;
-      line-height: 1.45;
+      padding-bottom: 80px;
     }
-    .app {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 16px 16px 100px;
+    .app { max-width: 480px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.4rem; font-weight: 700; }
+    .subtitle { font-size: 0.85rem; color: var(--muted); margin-bottom: 18px; }
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--surface2);
+      display: flex; justify-content: space-around; padding: 8px 0 12px;
+      z-index: 50; max-width: 480px; margin: 0 auto;
     }
-    header { margin-bottom: 24px; padding-top: 8px; }
-    h1 { font-size: 1.5rem; font-weight: 700; }
-    .subtitle { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      border: none; border-radius: 12px; font-size: 0.95rem; font-weight: 600;
-      cursor: pointer; padding: 12px 18px;
+    .nav button {
+      background: none; border: none; color: var(--muted);
+      font-size: 0.7rem; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      cursor: pointer; padding: 4px 8px;
     }
-    .btn-primary { background: var(--accent); color: #0f172a; }
-    .btn-ghost { background: transparent; color: var(--text-muted); }
-    .btn-sm { padding: 8px 14px; font-size: 0.85rem; border-radius: 10px; }
-    .btn-done { background: var(--success); color: #0f172a; flex: 1; }
-    .btn-edit { background: var(--surface2); color: var(--text); }
-    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); width: 100%; }
-    .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-    .empty h2 { font-size: 1.2rem; margin-bottom: 8px; color: var(--text); }
-    .list { display: flex; flex-direction: column; gap: 12px; }
+    .nav button.active { color: var(--accent); }
+    .nav svg { width: 22px; height: 22px; }
     .card {
-      background: var(--surface); border-radius: var(--radius); padding: 16px;
-      position: relative; overflow: hidden;
+      background: var(--surface); border-radius: 14px; padding: 16px;
+      margin-bottom: 10px; position: relative; overflow: hidden;
     }
+    .card.clickable { cursor: pointer; }
     .card::before {
-      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
     }
-    .card.status-fresh::before { background: var(--success); }
-    .card.status-due::before { background: var(--warning); }
-    .card.status-overdue::before { background: var(--danger); }
-    .card.status-none::before { background: var(--surface2); }
-    .card-header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-    .card-title { font-size: 1.1rem; font-weight: 600; flex: 1; }
-    .days-badge {
-      font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+    .urgent::before { background: var(--red); }
+    .due::before { background: var(--yellow); }
+    .upcoming::before { background: var(--accent); }
+    .done::before { background: var(--green); }
+    .reminder::before { background: var(--purple); }
+    .neutral::before { background: var(--surface2); }
+    .row { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .title { font-weight: 600; font-size: 1.05rem; }
+    .meta { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+    .badge {
+      font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 12px; white-space: nowrap;
     }
-    .status-fresh .days-badge { background: rgba(74,222,128,0.15); color: var(--success); }
-    .status-due .days-badge { background: rgba(251,191,36,0.15); color: var(--warning); }
-    .status-overdue .days-badge { background: rgba(248,113,113,0.15); color: var(--danger); }
-    .status-none .days-badge { background: var(--surface2); color: var(--text-muted); }
-    .meta { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
-    .notes {
-      font-size: 0.9rem; background: rgba(0,0,0,0.2); padding: 8px 10px;
-      border-radius: 8px; margin-bottom: 12px; white-space: pre-wrap;
+    .urgent .badge { background: rgba(248,113,113,0.15); color: var(--red); }
+    .due .badge { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .upcoming .badge { background: rgba(56,189,248,0.15); color: var(--accent); }
+    .done .badge { background: rgba(74,222,128,0.15); color: var(--green); }
+    .actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn {
+      border: none; border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
     }
-    .card-actions { display: flex; gap: 8px; }
+    .btn-done { background: white; color: #0f172a; flex: 1; }
+    .btn-done.green { background: var(--green); }
+    .btn-edit { background: var(--surface2); color: var(--text); }
+    .btn-primary { background: var(--accent); color: #0f172a; }
+    .btn-ghost { background: transparent; color: var(--muted); }
+    .section-title { font-size: 0.9rem; color: var(--muted); margin: 20px 0 8px; font-weight: 600; }
+    .home-label { font-size: 0.8rem; color: var(--muted); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .empty { text-align: center; padding: 40px 20px; color: var(--muted); line-height: 1.5; }
+    .big-number { font-size: 1.8rem; font-weight: 700; }
+    .remaining { color: var(--green); }
+    .remaining.low { color: var(--yellow); }
+    .remaining.over { color: var(--red); }
     .fab {
-      position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px;
-      border-radius: 50%; background: var(--accent); color: #0f172a;
-      font-size: 1.8rem; border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 6px 24px rgba(56,189,248,0.4);
+      position: fixed; bottom: 90px; right: 20px; width: 56px; height: 56px;
+      border-radius: 50%; background: var(--accent); color: #0f172a; font-size: 1.6rem;
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(56,189,248,0.4); z-index: 40;
     }
-    .sort-bar { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
-    .chip {
-      padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 500;
-      background: var(--surface); color: var(--text-muted); border: none; white-space: nowrap; cursor: pointer;
+    .tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
+    .tab {
+      padding: 7px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+      background: var(--surface); color: var(--muted); border: none; white-space: nowrap; cursor: pointer;
     }
-    .chip.active { background: var(--accent); color: #0f172a; }
-    .modal-overlay {
+    .tab.active { background: var(--accent); color: #0f172a; }
+    .overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.7);
       display: flex; align-items: flex-end; justify-content: center;
-      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+      opacity: 0; pointer-events: none; transition: 0.2s; z-index: 100;
     }
-    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .overlay.open { opacity: 1; pointer-events: auto; }
     .modal {
       background: var(--surface); width: 100%; max-width: 480px;
-      border-radius: 20px 20px 0 0; padding: 24px 20px 32px;
-      transform: translateY(100%); transition: transform 0.25s ease;
-      max-height: 90dvh; overflow-y: auto;
+      border-radius: 20px 20px 0 0; padding: 22px 18px 30px;
+      transform: translateY(100%); transition: 0.25s; max-height: 90dvh; overflow-y: auto;
     }
-    .modal-overlay.open .modal { transform: translateY(0); }
-    .modal h2 { font-size: 1.25rem; margin-bottom: 20px; }
-    .form-group { margin-bottom: 16px; }
-    label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
-    input, textarea {
+    .overlay.open .modal { transform: translateY(0); }
+    .modal h2 { margin-bottom: 16px; font-size: 1.2rem; }
+    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 5px; }
+    .req { color: var(--red); }
+    input, textarea, select {
       width: 100%; background: var(--bg); border: 1px solid var(--surface2);
-      border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 1rem;
+      border-radius: 10px; padding: 11px; color: var(--text); font-size: 1rem; margin-bottom: 12px;
     }
-    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-    textarea { min-height: 80px; resize: vertical; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
-    .modal-actions .btn { flex: 1; }
-    .error-msg {
-      background: rgba(248,113,113,0.15); color: var(--danger);
-      padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem;
-      display: none;
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+    .modal-actions button { flex: 1; padding: 12px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; }
+    .delete-btn {
+      background: transparent; color: var(--red); border: 1px solid var(--red);
+      width: 100%; margin-top: 12px; padding: 11px; border-radius: 12px; font-weight: 600;
     }
+    .toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .toggle-btn {
+      flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--surface2);
+      background: var(--bg); color: var(--muted); font-weight: 600; cursor: pointer;
+    }
+    .toggle-btn.active-yes { background: rgba(74,222,128,0.2); color: var(--green); border-color: var(--green); }
+    .toggle-btn.active-no { background: rgba(248,113,113,0.2); color: var(--red); border-color: var(--red); }
+    .shop-item {
+      display: flex; align-items: center; gap: 12px; background: var(--surface);
+      padding: 12px 14px; border-radius: 12px; margin-bottom: 8px;
+    }
+    .shop-item input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+    .shop-item.checked .name { text-decoration: line-through; color: var(--muted); }
+    .shop-cost { font-size: 0.85rem; color: var(--muted); margin-left: auto; }
+    .budget-total { font-size: 1.8rem; font-weight: 700; margin: 4px 0; }
+    .cat-row {
+      display: flex; justify-content: space-between; padding: 10px 0;
+      border-bottom: 1px solid var(--surface2); font-size: 0.95rem;
+    }
+    .budget-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+    .stat-box { background: var(--bg); border-radius: 12px; padding: 12px; text-align: center; }
+    .stat-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+    .stat-value { font-size: 1.15rem; font-weight: 700; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <div>
-        <h1>LastWhen</h1>
-        <div class="subtitle">Irregular maintenance, no streaks</div>
-      </div>
-    </header>
-
-    <div class="sort-bar" id="sortBar">
-      <button class="chip active" data-sort="urgency">Most urgent</button>
-      <button class="chip" data-sort="name">Name</button>
-      <button class="chip" data-sort="recent">Recently done</button>
-    </div>
-
-    <div id="list" class="list"></div>
-    <div id="empty" class="empty" style="display:none;">
-      <h2>Nothing tracked yet</h2>
-      <p>Add the things you only do every few weeks or months.</p>
-      <button class="btn btn-primary" onclick="openModal()">+ Add first item</button>
-    </div>
+  <div class="app" id="app"></div>
+  <nav class="nav" id="nav">
+    <button data-page="home" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button data-page="maintenance">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      Maintain
+    </button>
+    <button data-page="reminders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Remind
+    </button>
+    <button data-page="shopping">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      Shop
+    </button>
+    <button data-page="budget">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Budget
+    </button>
+  </nav>
+  <div class="overlay" id="overlay">
+    <div class="modal" id="modal"></div>
   </div>
-
-  <button class="fab" onclick="openModal()">+</button>
-
-  <div class="modal-overlay" id="modal">
-    <div class="modal">
-      <h2 id="modalTitle">Add item</h2>
-      <div id="errorMsg" class="error-msg"></div>
-      <form id="itemForm">
-        <input type="hidden" id="editId" />
-        <div class="form-group">
-          <label for="name">What to track</label>
-          <input type="text" id="name" placeholder="e.g. HVAC filter, Haircut, Dentist" required />
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="lastDone">Last done</label>
-            <input type="date" id="lastDone" />
-          </div>
-          <div class="form-group">
-            <label for="interval">Ideal every (days)</label>
-            <input type="number" id="interval" min="1" placeholder="e.g. 90" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="notes">Notes (optional)</label>
-          <textarea id="notes" placeholder="Who did it, what worked, cost..."></textarea>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
-        </div>
-        <div id="deleteRow" style="margin-top:16px; display:none;">
-          <button type="button" class="btn btn-danger" onclick="deleteItem()">Delete</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <script>
-    const STORAGE_KEY = 'lastwhen_items_v1';
-    let items = [];
-    let currentSort = 'urgency';
-    let editingId = null;
+    const KEY = 'lastwhen_home_v5';
+    let data = JSON.parse(localStorage.getItem(KEY) || '{"maintenance":[],"reminders":[],"shopping":[],"costs":[],"startingBudget":null}');
+    let page = 'home';
+    let maintTab = 'urgent';
+    let editing = null;
+    let tempSatisfied = null;
 
-    // Better UUID that works everywhere
-    function generateId() {
-      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-      }
-      return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    function save() { localStorage.setItem(KEY, JSON.stringify(data)); }
+    function today() { const d = new Date(); d.setHours(12,0,0,0); return d; }
+    function parse(s) { return s ? new Date(s + 'T12:00:00') : null; }
+    function daysUntil(d) { return d ? Math.round((d - today()) / 86400000) : null; }
+    function uid() { return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2,7); }
+    function fmt(d) {
+      if (!d) return '';
+      return parse(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
-
-    function load() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        items = raw ? JSON.parse(raw) : [];
-      } catch (e) {
-        console.error('Load failed:', e);
-        items = [];
-        showError('Could not load saved data. Try hosting the file online (Netlify Drop is free).');
-      }
+    function money(n) {
+      if (n == null || n === '') return '$0.00';
+      return '$' + Number(n).toFixed(2);
     }
-
-    function save() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-        return true;
-      } catch (e) {
-        console.error('Save failed:', e);
-        showError('Could not save. This usually happens when opening the file directly. Please host it online (see instructions).');
-        return false;
-      }
-    }
-
-    function showError(msg) {
-      const el = document.getElementById('errorMsg');
-      el.textContent = msg;
-      el.style.display = 'block';
-    }
-
-    function clearError() {
-      document.getElementById('errorMsg').style.display = 'none';
-    }
-
-    function daysSince(dateStr) {
-      if (!dateStr) return null;
-      const then = new Date(dateStr + 'T12:00:00');
-      const now = new Date();
-      now.setHours(12,0,0,0);
-      return Math.floor((now - then) / 86400000);
-    }
-
-    function getStatus(item) {
-      const days = daysSince(item.lastDone);
-      if (days === null) return 'none';
-      if (!item.interval) return 'fresh';
-      const ratio = days / item.interval;
-      if (ratio >= 1.15) return 'overdue';
-      if (ratio >= 0.85) return 'due';
-      return 'fresh';
-    }
-
-    function formatDays(days) {
-      if (days === null) return 'Never done';
-      if (days === 0) return 'Today';
-      if (days === 1) return '1 day ago';
-      if (days < 14) return days + ' days ago';
-      if (days < 60) return Math.round(days / 7) + ' weeks ago';
-      return Math.round(days / 30) + ' months ago';
-    }
-
-    function formatDate(iso) {
-      const d = new Date(iso + 'T12:00:00');
-      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-
-    function escapeHtml(str) {
+    function esc(str) {
       if (!str) return '';
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function maintCategory(item) {
+      if (item.completed) return 'done';
+      const next = item.nextDue ? parse(item.nextDue) : null;
+      if (!next) return 'upcoming';
+      const days = daysUntil(next);
+      if (days < 0) return 'urgent';
+      if (days === 0) return 'due';
+      return 'upcoming';
+    }
+
+    function monthCosts() {
+      const m = new Date().getMonth();
+      return data.costs.filter(c => parse(c.date)?.getMonth() === m);
+    }
+
+    function goTo(pageName, tab) {
+      page = pageName;
+      if (tab) maintTab = tab;
+      document.querySelectorAll('.nav button').forEach(b => {
+        b.classList.toggle('active', b.dataset.page === pageName);
+      });
+      render();
     }
 
     function render() {
-      const listEl = document.getElementById('list');
-      const emptyEl = document.getElementById('empty');
+      const app = document.getElementById('app');
+      if (page === 'home') app.innerHTML = renderHome();
+      else if (page === 'maintenance') app.innerHTML = renderMaintenance();
+      else if (page === 'reminders') app.innerHTML = renderReminders();
+      else if (page === 'shopping') app.innerHTML = renderShopping();
+      else if (page === 'budget') app.innerHTML = renderBudget();
 
-      if (items.length === 0) {
-        listEl.innerHTML = '';
-        emptyEl.style.display = 'block';
-        return;
+      let fab = document.querySelector('.fab');
+      if (fab) fab.remove();
+      if (['maintenance','reminders','shopping','budget'].includes(page)) {
+        fab = document.createElement('button');
+        fab.className = 'fab';
+        fab.textContent = '+';
+        fab.onclick = () => {
+          if (page === 'maintenance') openMaintModal();
+          else if (page === 'reminders') openReminderModal();
+          else if (page === 'shopping') openShopModal();
+          else if (page === 'budget') openCostModal();
+        };
+        document.body.appendChild(fab);
       }
-      emptyEl.style.display = 'none';
+    }
 
-      let sorted = [...items];
-      if (currentSort === 'urgency') {
-        sorted.sort((a, b) => {
-          const order = { overdue: 0, due: 1, none: 2, fresh: 3 };
-          const sa = getStatus(a), sb = getStatus(b);
-          if (order[sa] !== order[sb]) return order[sa] - order[sb];
-          return (daysSince(b.lastDone) ?? 9999) - (daysSince(a.lastDone) ?? 9999);
-        });
-      } else if (currentSort === 'name') {
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-      } else {
-        sorted.sort((a, b) => (b.lastDone || '1970').localeCompare(a.lastDone || '1970'));
-      }
+    function renderHome() {
+      const urgent = data.maintenance.filter(i => maintCategory(i) === 'urgent')
+        .sort((a,b) => parse(a.nextDue) - parse(b.nextDue));
+      const due = data.maintenance.filter(i => maintCategory(i) === 'due');
+      const upcoming = data.maintenance.filter(i => maintCategory(i) === 'upcoming')
+        .sort((a,b) => parse(a.nextDue) - parse(b.nextDue)).slice(0, 4);
+      const nextReminder = data.reminders
+        .filter(r => !r.done && parse(r.date) >= today())
+        .sort((a,b) => parse(a.date) - parse(b.date))[0];
+      const costs = monthCosts();
+      const spent = costs.reduce((s,c) => s + (Number(c.amount)||0), 0);
+      const starting = data.startingBudget;
+      const remaining = starting != null ? starting - spent : null;
 
-      listEl.innerHTML = sorted.map(item => {
-        const status = getStatus(item);
-        const daysLabel = formatDays(daysSince(item.lastDone));
-        const intervalLabel = item.interval ? ` · every ${item.interval}d` : '';
+      function smallMaintCard(item) {
+        const cat = maintCategory(item);
+        const next = item.nextDue ? parse(item.nextDue) : null;
+        let badge = '';
+        if (next) {
+          const d = daysUntil(next);
+          if (d < 0) badge = Math.abs(d) + 'd overdue';
+          else if (d === 0) badge = 'Due today';
+          else badge = 'Due in ' + d + 'd';
+        }
         return `
-          <div class="card status-${status}">
-            <div class="card-header">
-              <div class="card-title">${escapeHtml(item.name)}</div>
-              <div class="days-badge">${daysLabel}</div>
-            </div>
-            <div class="meta">
-              ${item.lastDone ? 'Last: ' + formatDate(item.lastDone) : 'Not yet done'}${intervalLabel}
-            </div>
-            ${item.notes ? `<div class="notes">${escapeHtml(item.notes)}</div>` : ''}
-            <div class="card-actions">
-              <button class="btn btn-sm btn-done" onclick="markDone('${item.id}')">✓ Done today</button>
-              <button class="btn btn-sm btn-edit" onclick="editItem('${item.id}')">Edit</button>
+          <div class="card ${cat} clickable" onclick="goTo('maintenance','${cat}')">
+            <div class="row">
+              <div>
+                <div class="title">${esc(item.name)}</div>
+                <div class="meta">${item.cost ? money(item.cost) + ' · ' : ''}${item.lastDone ? 'Last: ' + fmt(item.lastDone) : ''}</div>
+              </div>
+              <div class="badge">${badge}</div>
             </div>
           </div>
         `;
-      }).join('');
+      }
+
+      let budgetHtml = '';
+      if (starting != null) {
+        const remClass = remaining < 0 ? 'over' : remaining < starting * 0.2 ? 'low' : '';
+        budgetHtml = `
+          <div class="card neutral clickable" onclick="goTo('budget')">
+            <div class="meta">Remaining this month</div>
+            <div class="big-number remaining ${remClass}">${money(remaining)}</div>
+            <div class="meta">of ${money(starting)} · Spent ${money(spent)}</div>
+          </div>
+        `;
+      } else {
+        budgetHtml = `
+          <div class="card neutral clickable" onclick="goTo('budget')">
+            <div class="big-number">${money(spent)}</div>
+            <div class="meta">Spent this month · Tap to set budget</div>
+          </div>
+        `;
+      }
+
+      return `
+        <h1>LastWhen</h1>
+        <div class="subtitle">Household memory + light money</div>
+        <div class="home-label">Most Urgent</div>
+        ${urgent.length ? urgent.slice(0,3).map(smallMaintCard).join('') : `
+          <div class="card neutral clickable" onclick="goTo('maintenance','urgent')">
+            <div class="title" style="color:var(--green)">All clear</div>
+            <div class="meta">No overdue items</div>
+          </div>
+        `}
+        ${due.length ? `<div class="home-label">Due Today</div>${due.map(smallMaintCard).join('')}` : ''}
+        ${upcoming.length ? `<div class="home-label">Upcoming</div>${upcoming.map(smallMaintCard).join('')}` : ''}
+        <div class="home-label">Next Reminder</div>
+        ${nextReminder ? `
+          <div class="card reminder clickable" onclick="goTo('reminders')">
+            <div class="row">
+              <div>
+                <div class="title">${esc(nextReminder.title)}</div>
+                <div class="meta">${fmt(nextReminder.date)}</div>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div class="card neutral clickable" onclick="goTo('reminders')">
+            <div class="title">No upcoming reminders</div>
+            <div class="meta">Tap to add one</div>
+          </div>
+        `}
+        <div class="home-label">Budget</div>
+        ${budgetHtml}
+      `;
     }
 
-    function openModal(id = null) {
-      clearError();
-      editingId = id;
-      const modal = document.getElementById('modal');
-      const title = document.getElementById('modalTitle');
-      const deleteRow = document.getElementById('deleteRow');
+    function renderMaintenance() {
+      const counts = { urgent:0, upcoming:0, due:0, done:0 };
+      data.maintenance.forEach(i => { const c = maintCategory(i); if(c) counts[c]++; });
+      const list = data.maintenance.filter(i => maintCategory(i) === maintTab);
+      return `
+        <h1>Maintenance</h1>
+        <div class="subtitle">Irregular tasks that cost money when ignored</div>
+        <div class="tabs">
+          <button class="tab ${maintTab==='urgent'?'active':''}" onclick="setMaintTab('urgent')">Urgent ${counts.urgent}</button>
+          <button class="tab ${maintTab==='upcoming'?'active':''}" onclick="setMaintTab('upcoming')">Upcoming ${counts.upcoming}</button>
+          <button class="tab ${maintTab==='due'?'active':''}" onclick="setMaintTab('due')">Due ${counts.due}</button>
+          <button class="tab ${maintTab==='done'?'active':''}" onclick="setMaintTab('done')">Done ${counts.done}</button>
+        </div>
+        ${list.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' : list.map(i => maintCard(i)).join('')}
+      `;
+    }
 
-      if (id) {
-        const item = items.find(i => i.id === id);
-        if (!item) return;
-        title.textContent = 'Edit item';
-        document.getElementById('editId').value = id;
-        document.getElementById('name').value = item.name;
-        document.getElementById('lastDone').value = item.lastDone || '';
-        document.getElementById('interval').value = item.interval || '';
-        document.getElementById('notes').value = item.notes || '';
-        deleteRow.style.display = 'block';
-      } else {
-        title.textContent = 'Add item';
-        document.getElementById('editId').value = '';
-        document.getElementById('name').value = '';
-        document.getElementById('lastDone').value = '';
-        document.getElementById('interval').value = '';
-        document.getElementById('notes').value = '';
-        deleteRow.style.display = 'none';
+    function maintCard(item) {
+      const cat = maintCategory(item);
+      const next = item.nextDue ? parse(item.nextDue) : null;
+      let badge = '';
+      if (cat === 'done') badge = item.lastDone ? 'Done ' + fmt(item.lastDone) : 'Done';
+      else if (next) {
+        const d = daysUntil(next);
+        if (d < 0) badge = Math.abs(d) + 'd overdue';
+        else if (d === 0) badge = 'Due today';
+        else badge = 'Due in ' + d + 'd';
       }
-      modal.classList.add('open');
-      setTimeout(() => document.getElementById('name').focus(), 100);
+      let extra = '';
+      if (item.who || item.satisfied != null) {
+        extra = `<div class="meta" style="margin-top:4px">
+          ${item.who ? 'By: ' + esc(item.who) : ''}
+          ${item.who && item.satisfied != null ? ' · ' : ''}
+          ${item.satisfied === true ? '😊 Satisfied' : item.satisfied === false ? '😐 Not satisfied' : ''}
+        </div>`;
+      }
+      return `
+        <div class="card ${cat}">
+          <div class="row">
+            <div>
+              <div class="title">${esc(item.name)}</div>
+              <div class="meta">
+                ${item.cost ? money(item.cost) + ' · ' : ''}
+                ${item.lastDone ? 'Last: ' + fmt(item.lastDone) : ''}
+                ${item.interval ? ' · Every ' + item.interval + 'd' : ''}
+              </div>
+              ${extra}
+            </div>
+            <div class="badge">${badge}</div>
+          </div>
+          ${item.notes ? `<div class="meta" style="margin-top:6px">${esc(item.notes)}</div>` : ''}
+          <div class="actions">
+            <button class="btn btn-done" onclick="event.stopPropagation();markMaintDone('${item.id}', this)">✓ Done</button>
+            <button class="btn btn-edit" onclick="event.stopPropagation();openMaintModal('${item.id}')">Edit</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function setMaintTab(t) { maintTab = t; render(); }
+
+    function renderReminders() {
+      const upcoming = data.reminders.filter(r => !r.done).sort((a,b) => parse(a.date) - parse(b.date));
+      return `
+        <h1>Reminders</h1>
+        <div class="subtitle">Birthdays, renewals, appointments</div>
+        ${upcoming.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' :
+          upcoming.map(r => `
+            <div class="card reminder">
+              <div class="row">
+                <div>
+                  <div class="title">${esc(r.title)}</div>
+                  <div class="meta">${fmt(r.date)}${r.recurring && r.recurring !== 'none' ? ' · ' + r.recurring : ''}</div>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-done" onclick="completeReminder('${r.id}')">✓ Done</button>
+                <button class="btn btn-edit" onclick="openReminderModal('${r.id}')">Edit</button>
+              </div>
+            </div>
+          `).join('')}
+      `;
+    }
+
+    function renderShopping() {
+      const items = data.shopping;
+      const total = items.reduce((s,i) => s + (i.checked && i.cost ? Number(i.cost) : 0), 0);
+      return `
+        <h1>Shopping List</h1>
+        <div class="subtitle">Supplies & items you need</div>
+        ${total > 0 ? `<div class="meta" style="margin-bottom:12px">Logged this list: ${money(total)}</div>` : ''}
+        ${items.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' :
+          items.map(i => `
+            <div class="shop-item ${i.checked ? 'checked' : ''}">
+              <input type="checkbox" ${i.checked ? 'checked' : ''} onchange="toggleShop('${i.id}', this.checked)">
+              <div class="name">${esc(i.name)}</div>
+              ${i.cost ? `<div class="shop-cost">${money(i.cost)}</div>` : ''}
+              <button class="btn btn-edit" style="padding:6px 10px" onclick="openShopModal('${i.id}')">Edit</button>
+            </div>
+          `).join('')}
+      `;
+    }
+
+    function renderBudget() {
+      const costs = monthCosts();
+      const spent = costs.reduce((s,c) => s + (Number(c.amount)||0), 0);
+      const starting = data.startingBudget;
+      const remaining = starting != null ? starting - spent : null;
+      const byCat = {};
+      costs.forEach(c => {
+        const cat = c.category || 'Other';
+        byCat[cat] = (byCat[cat] || 0) + (Number(c.amount)||0);
+      });
+      const remClass = remaining == null ? '' : remaining < 0 ? 'over' : remaining < (starting * 0.2) ? 'low' : '';
+      return `
+        <h1>Budget</h1>
+        <div class="subtitle">Track what you have and what you spend</div>
+        <div class="card neutral">
+          <div class="budget-stats">
+            <div class="stat-box">
+              <div class="stat-label">Starting</div>
+              <div class="stat-value">${starting != null ? money(starting) : '—'}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Spent</div>
+              <div class="stat-value">${money(spent)}</div>
+            </div>
+          </div>
+          <div style="text-align:center; margin-top:8px">
+            <div class="stat-label">Remaining</div>
+            <div class="budget-total remaining ${remClass}">${remaining != null ? money(remaining) : 'Set a starting budget'}</div>
+          </div>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn btn-edit" style="flex:1" onclick="openStartingBudgetModal()">Set Starting Budget</button>
+          </div>
+        </div>
+        <div class="section-title">By category</div>
+        <div class="card">
+          ${Object.keys(byCat).length === 0 ? '<div class="meta">No costs logged yet</div>' :
+            Object.entries(byCat).map(([k,v]) => `
+              <div class="cat-row"><span>${esc(k)}</span><span>${money(v)}</span></div>
+            `).join('')}
+        </div>
+        <div class="section-title">Recent entries</div>
+        ${costs.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' :
+          costs.slice().reverse().slice(0,20).map(c => `
+            <div class="card">
+              <div class="row">
+                <div>
+                  <div class="title">${esc(c.label || c.category || 'Cost')}</div>
+                  <div class="meta">${fmt(c.date)} · ${esc(c.category || '')}</div>
+                </div>
+                <div style="font-weight:600">${money(c.amount)}</div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-edit" onclick="openCostModal('${c.id}')">Edit</button>
+              </div>
+            </div>
+          `).join('')}
+      `;
+    }
+
+    function openStartingBudgetModal() {
+      document.getElementById('modal').innerHTML = `
+        <h2>Starting Budget</h2>
+        <label>How much do you have to spend this month? <span class="req">*</span></label>
+        <input type="number" id="b-start" step="0.01" value="${data.startingBudget != null ? data.startingBudget : ''}" placeholder="e.g. 2000">
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn-primary" onclick="saveStartingBudget()">Save</button>
+        </div>
+      `;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function saveStartingBudget() {
+      const val = document.getElementById('b-start').value;
+      data.startingBudget = val === '' ? null : Number(val);
+      save(); closeModal(); render();
+    }
+
+    function openMaintModal(id) {
+      editing = id || null;
+      const item = id ? data.maintenance.find(i => i.id === id) : null;
+      tempSatisfied = item ? item.satisfied : null;
+      document.getElementById('modal').innerHTML = `
+        <h2>${id ? 'Edit' : 'Add'} Maintenance</h2>
+        <label>Name <span class="req">*</span></label>
+        <input id="m-name" value="${item ? esc(item.name) : ''}" placeholder="e.g. HVAC filter">
+        <label>Next due date <span class="req">*</span></label>
+        <input type="date" id="m-next" value="${item?.nextDue || ''}">
+        <div class="form-row">
+          <div><label>Last done</label><input type="date" id="m-last" value="${item?.lastDone || ''}"></div>
+          <div><label>Repeat every (days)</label><input type="number" id="m-interval" value="${item?.interval || ''}" placeholder="90"></div>
+        </div>
+        <label>Cost (optional)</label>
+        <input type="number" id="m-cost" step="0.01" value="${item?.cost || ''}" placeholder="0.00">
+        <label>Who did the work (optional)</label>
+        <input id="m-who" value="${item ? esc(item.who || '') : ''}" placeholder="e.g. Mike at ABC Heating">
+        <label>Satisfied?</label>
+        <div class="toggle-row">
+          <button type="button" class="toggle-btn ${tempSatisfied===true?'active-yes':''}" onclick="setSatisfied(true)">Yes</button>
+          <button type="button" class="toggle-btn ${tempSatisfied===false?'active-no':''}" onclick="setSatisfied(false)">No</button>
+        </div>
+        <label>Notes</label>
+        <textarea id="m-notes">${item ? esc(item.notes || '') : ''}</textarea>
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn-primary" onclick="saveMaint()">Save</button>
+        </div>
+        ${id ? `<button class="delete-btn" onclick="deleteMaint()">Delete</button>` : ''}
+      `;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function setSatisfied(val) {
+      tempSatisfied = val;
+      const buttons = document.querySelectorAll('.toggle-btn');
+      if (buttons[0]) buttons[0].className = 'toggle-btn' + (val === true ? ' active-yes' : '');
+      if (buttons[1]) buttons[1].className = 'toggle-btn' + (val === false ? ' active-no' : '');
+    }
+
+    function saveMaint() {
+      const name = document.getElementById('m-name').value.trim();
+      const nextDue = document.getElementById('m-next').value;
+      if (!name || !nextDue) return alert('Name and next due date are required');
+      const payload = {
+        name, nextDue,
+        lastDone: document.getElementById('m-last').value || null,
+        interval: parseInt(document.getElementById('m-interval').value) || null,
+        cost: document.getElementById('m-cost').value ? Number(document.getElementById('m-cost').value) : null,
+        who: document.getElementById('m-who').value.trim() || null,
+        satisfied: tempSatisfied,
+        notes: document.getElementById('m-notes').value.trim() || '',
+        completed: false
+      };
+      if (editing) {
+        const item = data.maintenance.find(i => i.id === editing);
+        Object.assign(item, payload); item.completed = false;
+      } else data.maintenance.push({ id: uid(), ...payload });
+      save(); closeModal(); render();
+    }
+
+    function markMaintDone(id, btn) {
+      const item = data.maintenance.find(i => i.id === id);
+      if (!item) return;
+      btn.classList.add('green'); btn.textContent = '✓ Done!';
+      let cost = item.cost;
+      if (cost == null) {
+        const input = prompt('Cost for this job? (leave blank if none)', '');
+        if (input !== null && input !== '') cost = Number(input);
+      }
+      item.lastDone = today().toISOString().slice(0,10);
+      item.completed = true; item.cost = cost;
+      if (item.interval) {
+        const next = new Date(today());
+        next.setDate(next.getDate() + Number(item.interval));
+        item.nextDue = next.toISOString().slice(0,10);
+      }
+      if (cost) data.costs.push({ id: uid(), amount: cost, date: item.lastDone, category: 'Maintenance', label: item.name });
+      setTimeout(() => { save(); render(); }, 400);
+    }
+
+    function deleteMaint() {
+      if (!confirm('Delete this item?')) return;
+      data.maintenance = data.maintenance.filter(i => i.id !== editing);
+      save(); closeModal(); render();
+    }
+
+    function openReminderModal(id) {
+      editing = id || null;
+      const item = id ? data.reminders.find(i => i.id === id) : null;
+      document.getElementById('modal').innerHTML = `
+        <h2>${id ? 'Edit' : 'Add'} Reminder</h2>
+        <label>Title <span class="req">*</span></label>
+        <input id="r-title" value="${item ? esc(item.title) : ''}" placeholder="Birthday, renewal...">
+        <label>Date <span class="req">*</span></label>
+        <input type="date" id="r-date" value="${item?.date || ''}">
+        <label>Recurring</label>
+        <select id="r-recurring">
+          <option value="none" ${item?.recurring==='none'?'selected':''}>None</option>
+          <option value="yearly" ${item?.recurring==='yearly'?'selected':''}>Yearly</option>
+          <option value="monthly" ${item?.recurring==='monthly'?'selected':''}>Monthly</option>
+        </select>
+        <label>Notes</label>
+        <textarea id="r-notes">${item ? esc(item.notes || '') : ''}</textarea>
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn-primary" onclick="saveReminder()">Save</button>
+        </div>
+        ${id ? `<button class="delete-btn" onclick="deleteReminder()">Delete</button>` : ''}
+      `;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function saveReminder() {
+      const title = document.getElementById('r-title').value.trim();
+      const date = document.getElementById('r-date').value;
+      if (!title || !date) return alert('Title and date are required');
+      const payload = { title, date, recurring: document.getElementById('r-recurring').value, notes: document.getElementById('r-notes').value.trim() || '', done: false };
+      if (editing) Object.assign(data.reminders.find(i => i.id === editing), payload);
+      else data.reminders.push({ id: uid(), ...payload });
+      save(); closeModal(); render();
+    }
+
+    function completeReminder(id) {
+      const r = data.reminders.find(i => i.id === id);
+      if (!r) return;
+      if (r.recurring === 'yearly') { const d = parse(r.date); d.setFullYear(d.getFullYear()+1); r.date = d.toISOString().slice(0,10); }
+      else if (r.recurring === 'monthly') { const d = parse(r.date); d.setMonth(d.getMonth()+1); r.date = d.toISOString().slice(0,10); }
+      else r.done = true;
+      save(); render();
+    }
+
+    function deleteReminder() {
+      if (!confirm('Delete?')) return;
+      data.reminders = data.reminders.filter(i => i.id !== editing);
+      save(); closeModal(); render();
+    }
+
+    function openShopModal(id) {
+      editing = id || null;
+      const item = id ? data.shopping.find(i => i.id === id) : null;
+      document.getElementById('modal').innerHTML = `
+        <h2>${id ? 'Edit' : 'Add'} Item</h2>
+        <label>Name <span class="req">*</span></label>
+        <input id="s-name" value="${item ? esc(item.name) : ''}" placeholder="Filter, batteries, supplies...">
+        <label>Cost (optional)</label>
+        <input type="number" id="s-cost" step="0.01" value="${item?.cost || ''}" placeholder="0.00">
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn-primary" onclick="saveShop()">Save</button>
+        </div>
+        ${id ? `<button class="delete-btn" onclick="deleteShop()">Delete</button>` : ''}
+      `;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function saveShop() {
+      const name = document.getElementById('s-name').value.trim();
+      if (!name) return alert('Name is required');
+      const cost = document.getElementById('s-cost').value ? Number(document.getElementById('s-cost').value) : null;
+      if (editing) { const item = data.shopping.find(i => i.id === editing); item.name = name; item.cost = cost; }
+      else data.shopping.push({ id: uid(), name, cost, checked: false });
+      save(); closeModal(); render();
+    }
+
+    function toggleShop(id, checked) {
+      const item = data.shopping.find(i => i.id === id);
+      if (!item) return;
+      item.checked = checked;
+      if (checked && item.cost) {
+        data.costs.push({ id: uid(), amount: item.cost, date: today().toISOString().slice(0,10), category: 'Shopping', label: item.name });
+      }
+      save(); render();
+    }
+
+    function deleteShop() {
+      if (!confirm('Delete?')) return;
+      data.shopping = data.shopping.filter(i => i.id !== editing);
+      save(); closeModal(); render();
+    }
+
+    function openCostModal(id) {
+      editing = id || null;
+      const item = id ? data.costs.find(i => i.id === id) : null;
+      document.getElementById('modal').innerHTML = `
+        <h2>${id ? 'Edit' : 'Add'} Cost</h2>
+        <label>Label</label>
+        <input id="c-label" value="${item ? esc(item.label || '') : ''}" placeholder="e.g. Oil change">
+        <label>Amount <span class="req">*</span></label>
+        <input type="number" id="c-amount" step="0.01" value="${item?.amount || ''}" placeholder="0.00">
+        <label>Category</label>
+        <select id="c-category">
+          <option value="Maintenance" ${item?.category==='Maintenance'?'selected':''}>Maintenance</option>
+          <option value="Shopping" ${item?.category==='Shopping'?'selected':''}>Shopping</option>
+          <option value="Car" ${item?.category==='Car'?'selected':''}>Car</option>
+          <option value="Home" ${item?.category==='Home'?'selected':''}>Home</option>
+          <option value="Other" ${!item || item?.category==='Other'?'selected':''}>Other</option>
+        </select>
+        <label>Date</label>
+        <input type="date" id="c-date" value="${item?.date || today().toISOString().slice(0,10)}">
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn-primary" onclick="saveCost()">Save</button>
+        </div>
+        ${id ? `<button class="delete-btn" onclick="deleteCost()">Delete</button>` : ''}
+      `;
+      document.getElementById('overlay').classList.add('open');
+    }
+
+    function saveCost() {
+      const label = document.getElementById('c-label').value.trim();
+      const amount = Number(document.getElementById('c-amount').value);
+      if (!amount && amount !== 0) return alert('Amount is required');
+      const payload = {
+        label: label || 'Cost',
+        amount,
+        category: document.getElementById('c-category').value,
+        date: document.getElementById('c-date').value || today().toISOString().slice(0,10)
+      };
+      if (editing) Object.assign(data.costs.find(i => i.id === editing), payload);
+      else data.costs.push({ id: uid(), ...payload });
+      save(); closeModal(); render();
+    }
+
+    function deleteCost() {
+      if (!confirm('Delete this entry?')) return;
+      data.costs = data.costs.filter(i => i.id !== editing);
+      save(); closeModal(); render();
     }
 
     function closeModal() {
-      document.getElementById('modal').classList.remove('open');
-      editingId = null;
-      clearError();
+      document.getElementById('overlay').classList.remove('open');
+      editing = null;
+      tempSatisfied = null;
     }
 
-    function markDone(id) {
-      const item = items.find(i => i.id === id);
-      if (!item) return;
-      item.lastDone = new Date().toISOString().slice(0, 10);
-      if (save()) render();
-    }
-
-    function editItem(id) {
-      openModal(id);
-    }
-
-    function deleteItem() {
-      if (!editingId || !confirm('Delete this item?')) return;
-      items = items.filter(i => i.id !== editingId);
-      if (save()) {
-        closeModal();
-        render();
-      }
-    }
-
-    document.getElementById('itemForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      clearError();
-
-      const name = document.getElementById('name').value.trim();
-      if (!name) return;
-
-      const data = {
-        name: name,
-        lastDone: document.getElementById('lastDone').value || null,
-        interval: parseInt(document.getElementById('interval').value) || null,
-        notes: document.getElementById('notes').value.trim() || ''
-      };
-
-      const id = document.getElementById('editId').value;
-
-      if (id) {
-        const item = items.find(i => i.id === id);
-        if (item) Object.assign(item, data);
-      } else {
-        items.push({
-          id: generateId(),
-          ...data,
-          createdAt: new Date().toISOString()
-        });
-      }
-
-      if (save()) {
-        closeModal();
-        render();
-      }
+    document.getElementById('nav').addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      goTo(btn.dataset.page);
     });
 
-    document.getElementById('sortBar').addEventListener('click', function(e) {
-      const chip = e.target.closest('.chip');
-      if (!chip) return;
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      currentSort = chip.dataset.sort;
-      render();
+    document.getElementById('overlay').addEventListener('click', e => {
+      if (e.target.id === 'overlay') closeModal();
     });
 
-    document.getElementById('modal').addEventListener('click', function(e) {
-      if (e.target.id === 'modal') closeModal();
+    data.maintenance.forEach(item => {
+      if (item.completed && item.nextDue) {
+        const days = daysUntil(parse(item.nextDue));
+        if (days !== null && days <= 10) item.completed = false;
+      }
     });
-
-    // Start
-    load();
+    save();
     render();
   </script>
 </body>
