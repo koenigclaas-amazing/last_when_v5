@@ -207,7 +207,6 @@
       return 'upcoming';
     }
 
-    // FIXED: filter by month AND year so spent/remaining is correct
     function monthCosts() {
       const now = new Date();
       return data.costs.filter(c => {
@@ -255,9 +254,16 @@
       const due = data.maintenance.filter(i => maintCategory(i) === 'due');
       const upcoming = data.maintenance.filter(i => maintCategory(i) === 'upcoming')
         .sort((a,b) => parse(a.nextDue) - parse(b.nextDue)).slice(0, 4);
+
+      // Overdue reminders (date in the past, not done)
+      const overdueReminders = data.reminders
+        .filter(r => !r.done && parse(r.date) < today())
+        .sort((a,b) => parse(a.date) - parse(b.date));
+
       const nextReminder = data.reminders
         .filter(r => !r.done && parse(r.date) >= today())
         .sort((a,b) => parse(a.date) - parse(b.date))[0];
+
       const costs = monthCosts();
       const spent = costs.reduce((s,c) => s + (Number(c.amount)||0), 0);
       const starting = data.startingBudget;
@@ -305,6 +311,28 @@
         `;
       }
 
+      // Overdue reminders block
+      let overdueHtml = '';
+      if (overdueReminders.length) {
+        overdueHtml = `
+          <div class="home-label">Overdue Reminders</div>
+          ${overdueReminders.slice(0,3).map(r => {
+            const days = Math.abs(daysUntil(parse(r.date)));
+            return `
+              <div class="card urgent clickable" onclick="goTo('reminders')">
+                <div class="row">
+                  <div>
+                    <div class="title">${esc(r.title)}</div>
+                    <div class="meta">${fmt(r.date)} · ${days}d overdue</div>
+                  </div>
+                  <div class="badge">${days}d overdue</div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        `;
+      }
+
       return `
         <h1>LastWhen</h1>
         <div class="subtitle">Household memory + light money</div>
@@ -317,6 +345,7 @@
         `}
         ${due.length ? `<div class="home-label">Due Today</div>${due.map(smallMaintCard).join('')}` : ''}
         ${upcoming.length ? `<div class="home-label">Upcoming</div>${upcoming.map(smallMaintCard).join('')}` : ''}
+        ${overdueHtml}
         <div class="home-label">Next Reminder</div>
         ${nextReminder ? `
           <div class="card reminder clickable" onclick="goTo('reminders')">
@@ -400,25 +429,35 @@
     function setMaintTab(t) { maintTab = t; render(); }
 
     function renderReminders() {
-      const upcoming = data.reminders.filter(r => !r.done).sort((a,b) => parse(a.date) - parse(b.date));
+      const list = data.reminders.filter(r => !r.done).sort((a,b) => parse(a.date) - parse(b.date));
       return `
         <h1>Reminders</h1>
         <div class="subtitle">Birthdays, renewals, appointments</div>
-        ${upcoming.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' :
-          upcoming.map(r => `
-            <div class="card reminder">
-              <div class="row">
-                <div>
-                  <div class="title">${esc(r.title)}</div>
-                  <div class="meta">${fmt(r.date)}${r.recurring && r.recurring !== 'none' ? ' · ' + r.recurring : ''}</div>
+        ${list.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' :
+          list.map(r => {
+            const d = parse(r.date);
+            const days = daysUntil(d);
+            let badge = '';
+            if (days < 0) badge = Math.abs(days) + 'd overdue';
+            else if (days === 0) badge = 'Today';
+            else badge = 'In ' + days + 'd';
+            const isOverdue = days < 0;
+            return `
+              <div class="card ${isOverdue ? 'urgent' : 'reminder'}">
+                <div class="row">
+                  <div>
+                    <div class="title">${esc(r.title)}</div>
+                    <div class="meta">${fmt(r.date)}${r.recurring && r.recurring !== 'none' ? ' · ' + r.recurring : ''}</div>
+                  </div>
+                  <div class="badge">${badge}</div>
+                </div>
+                <div class="actions">
+                  <button class="btn btn-done" onclick="completeReminder('${r.id}')">✓ Done</button>
+                  <button class="btn btn-edit" onclick="openReminderModal('${r.id}')">Edit</button>
                 </div>
               </div>
-              <div class="actions">
-                <button class="btn btn-done" onclick="completeReminder('${r.id}')">✓ Done</button>
-                <button class="btn btn-edit" onclick="openReminderModal('${r.id}')">Edit</button>
-              </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
       `;
     }
 
@@ -620,9 +659,10 @@
         <input type="date" id="r-date" value="${item?.date || ''}">
         <label>Recurring</label>
         <select id="r-recurring">
-          <option value="none" ${item?.recurring==='none'?'selected':''}>None</option>
-          <option value="yearly" ${item?.recurring==='yearly'?'selected':''}>Yearly</option>
+          <option value="none" ${!item || item?.recurring==='none'?'selected':''}>None</option>
+          <option value="weekly" ${item?.recurring==='weekly'?'selected':''}>Weekly</option>
           <option value="monthly" ${item?.recurring==='monthly'?'selected':''}>Monthly</option>
+          <option value="yearly" ${item?.recurring==='yearly'?'selected':''}>Yearly</option>
         </select>
         <label>Notes</label>
         <textarea id="r-notes">${item ? esc(item.notes || '') : ''}</textarea>
@@ -648,9 +688,15 @@
     function completeReminder(id) {
       const r = data.reminders.find(i => i.id === id);
       if (!r) return;
-      if (r.recurring === 'yearly') { const d = parse(r.date); d.setFullYear(d.getFullYear()+1); r.date = d.toISOString().slice(0,10); }
-      else if (r.recurring === 'monthly') { const d = parse(r.date); d.setMonth(d.getMonth()+1); r.date = d.toISOString().slice(0,10); }
-      else r.done = true;
+      if (r.recurring === 'yearly') {
+        const d = parse(r.date); d.setFullYear(d.getFullYear()+1); r.date = d.toISOString().slice(0,10);
+      } else if (r.recurring === 'monthly') {
+        const d = parse(r.date); d.setMonth(d.getMonth()+1); r.date = d.toISOString().slice(0,10);
+      } else if (r.recurring === 'weekly') {
+        const d = parse(r.date); d.setDate(d.getDate()+7); r.date = d.toISOString().slice(0,10);
+      } else {
+        r.done = true;
+      }
       save(); render();
     }
 
