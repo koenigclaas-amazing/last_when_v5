@@ -112,6 +112,14 @@
       width: 100%; background: var(--bg); border: 1px solid var(--surface2);
       border-radius: 10px; padding: 11px; color: var(--text); font-size: 1rem; margin-bottom: 12px;
     }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+      opacity: 0.9;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
     .modal-actions button { flex: 1; padding: 12px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; }
@@ -255,7 +263,6 @@
       const upcoming = data.maintenance.filter(i => maintCategory(i) === 'upcoming')
         .sort((a,b) => parse(a.nextDue) - parse(b.nextDue)).slice(0, 4);
 
-      // Overdue reminders (date in the past, not done)
       const overdueReminders = data.reminders
         .filter(r => !r.done && parse(r.date) < today())
         .sort((a,b) => parse(a.date) - parse(b.date));
@@ -311,7 +318,6 @@
         `;
       }
 
-      // Overdue reminders block
       let overdueHtml = '';
       if (overdueReminders.length) {
         overdueHtml = `
@@ -468,8 +474,11 @@
         <h1>Shopping List</h1>
         <div class="subtitle">Supplies & items you need</div>
         ${total > 0 ? `<div class="meta" style="margin-bottom:12px">Logged this list: ${money(total)}</div>` : ''}
-        ${items.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' :
-          items.map(i => `
+        ${items.length === 0 ? '<div class="empty">No entries yet.<br>Tap + to add one.</div>' : `
+          <div style="margin-bottom:12px">
+            <button class="btn btn-edit" style="width:100%; color:var(--red); border:1px solid var(--red); background:transparent" onclick="deleteAllShop()">Delete all</button>
+          </div>
+          ${items.map(i => `
             <div class="shop-item ${i.checked ? 'checked' : ''}">
               <input type="checkbox" ${i.checked ? 'checked' : ''} onchange="toggleShop('${i.id}', this.checked)">
               <div class="name">${esc(i.name)}</div>
@@ -477,7 +486,16 @@
               <button class="btn btn-edit" style="padding:6px 10px" onclick="openShopModal('${i.id}')">Edit</button>
             </div>
           `).join('')}
+        `}
       `;
+    }
+
+    function deleteAllShop() {
+      if (!data.shopping.length) return;
+      if (!confirm('Delete all shopping items?')) return;
+      data.shopping = [];
+      save();
+      render();
     }
 
     function renderBudget() {
